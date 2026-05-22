@@ -34,15 +34,13 @@ const deleteEvent = async (id: number) => {
 export default function EventIndex() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
       setLoading(true);
       const data = await getAllEvents();
       setEvents(data);
-    } catch {
-      setError("Gagal memuat data event.");
     } finally {
       setLoading(false);
     }

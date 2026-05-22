@@ -5,7 +5,7 @@ const BASE_URL = "https://backend-invofest-six.vercel.app/categories";
 
 type Category = {
   id: number;
-  name: string; // ← Menggunakan 'nama' sesuai schema.prisma
+  name: string;
 };
 
 const TABLE_HEADERS = ["No", "Nama Kategori", "Aksi"];
@@ -13,7 +13,7 @@ const TABLE_HEADERS = ["No", "Nama Kategori", "Aksi"];
 export default function CategoryIndex() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
 
   const fetchCategories = async () => {
     try {
@@ -22,8 +22,6 @@ export default function CategoryIndex() {
       if (!res.ok) throw new Error("Gagal mengambil data");
       const data = await res.json();
       setCategories(data);
-    } catch {
-      setError("Gagal memuat data kategori.");
     } finally {
       setLoading(false);
     }

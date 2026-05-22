@@ -2,12 +2,12 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 
 // ===== SERVICE =====
-const BASE_URL = "https://backend-invofest-six.vercel.app/pembicara";
+const BASE_URL = "https://backend-invofest-six.vercel.app/speakers";
 
 type Pembicara = {
   id: number;
   name: string;
-  job: string;
+  role: string;
   email: string;
   photo?: string;
   bio: string;
@@ -16,8 +16,11 @@ type Pembicara = {
 
 const getAllPembicara = async (): Promise<Pembicara[]> => {
   const res = await fetch(BASE_URL);
-  if (!res.ok) throw new Error("Gagal mengambil data pembicara");
-  return res.json();
+  if (!res.ok) throw new Error("Gagal mengambil data speakers");
+  
+  const result = await res.json();
+  // 2. Karena API Vercel membungkus array dalam objek "data", kita ambil result.data
+  return Array.isArray(result) ? result : result.data || [];
 };
 
 const deletePembicara = async (id: number) => {
@@ -44,7 +47,7 @@ function Avatar({ name }: { name: string }) {
 
 // ===== COMPONENT =====
 export default function PembicaraIndex() {
-  const [speakers, setSpeakers] = useState<Pembicara[]>([]);
+  const [pembicara, setPembicara] = useState<Pembicara[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,7 +55,7 @@ export default function PembicaraIndex() {
     try {
       setLoading(true);
       const data = await getAllPembicara();
-      setSpeakers(data);
+      setPembicara(data);
     } catch {
       setError("Gagal memuat data pembicara.");
     } finally {
@@ -68,7 +71,7 @@ export default function PembicaraIndex() {
     if (!confirm("Yakin ingin menghapus pembicara ini?")) return;
     try {
       await deletePembicara(id);
-      setSpeakers((prev) => prev.filter((s) => s.id !== id));
+      setPembicara((prev) => prev.filter((p) => p.id !== id));
     } catch {
       alert("Gagal menghapus pembicara.");
     }
@@ -135,7 +138,7 @@ export default function PembicaraIndex() {
             )}
 
             {/* Empty state */}
-            {!loading && !error && speakers.length === 0 && (
+            {!loading && !error && pembicara.length === 0 && (
               <tr>
                 <td colSpan={6} className="text-center py-10 text-gray-400 text-sm">
                   Belum ada pembicara.
@@ -144,7 +147,7 @@ export default function PembicaraIndex() {
             )}
 
             {/* Data */}
-            {!loading && !error && speakers.map((item, index) => (
+            {!loading && !error && pembicara.map((item, index) => (
               <tr
                 key={item.id}
                 className="border-b border-gray-100 hover:bg-rose-50/40 transition"
@@ -162,7 +165,7 @@ export default function PembicaraIndex() {
 
                 <td className="px-5 py-4">
                   <span className="text-sm bg-rose-100 text-[#7B1D3F] px-3 py-1 rounded-full font-medium">
-                    {item.job}
+                    {item.role}
                   </span>
                 </td>
 
@@ -207,7 +210,7 @@ export default function PembicaraIndex() {
         {/* FOOTER */}
         <div className="px-5 py-3 border-t border-gray-100 bg-gray-50">
           <span className="text-sm text-gray-400">
-            Menampilkan {speakers.length} pembicara
+            Menampilkan {pembicara.length} pembicara
           </span>
         </div>
       </div>

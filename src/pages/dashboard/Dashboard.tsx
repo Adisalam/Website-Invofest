@@ -1,7 +1,12 @@
-import { Link } from "react-router-dom";
-import { useEffect, useState } from "react"; 
-import axios from "axios"; 
+import { useEffect, useState } from "react";
 
+// ===== ENDPOINTS =====
+// PERBAIKAN: Dialihkan dari localhost ke URL Vercel Backend yang sudah live
+const EVENTS_URL = "https://backend-invofest-six.vercel.app/events";
+const CATEGORIES_URL = "https://backend-invofest-six.vercel.app/categories";
+const PEMBICARA_URL = "https://backend-invofest-six.vercel.app/speakers";
+
+// ===== TYPES =====
 type Stat = {
   title: string;
   value: number;
@@ -9,17 +14,19 @@ type Stat = {
 };
 
 type EventItem = {
+  id: number;
   name: string;
-  category: string;
-  date: string;
+  dateEvent: string;
+  category?: { nama: string };
 };
 
 type SpeakerItem = {
+  id: number;
   name: string;
-  job: string;
+  role: string; // Sesuaikan dengan skema database 'role'
 };
 
-// --- SUB-KOMPONEN TAMPILAN ---
+// ===== COMPONENTS =====
 function StatCard({ stat }: { stat: Stat }) {
   return (
     <div className="bg-white rounded-2xl shadow-md p-6 flex flex-col gap-4 hover:shadow-lg transition">
@@ -29,9 +36,11 @@ function StatCard({ stat }: { stat: Stat }) {
         </span>
         <span className="text-2xl">{stat.icon}</span>
       </div>
+
       <p className="text-4xl font-bold text-[#1a0a10]">
         {stat.value}
       </p>
+
       <div className="h-1 w-10 bg-[#7B1D3F] rounded-full" />
     </div>
   );
@@ -51,10 +60,17 @@ function EventListItem({ item, isLast }: { item: EventItem; isLast: boolean }) {
     <li className={`flex items-center justify-between py-4 ${isLast ? "" : "border-b border-gray-100"}`}>
       <div>
         <p className="font-semibold text-[#1a0a10]">{item.name}</p>
-        <p className="text-sm text-gray-400">{item.date}</p>
+        <p className="text-sm text-gray-400">
+          {new Date(item.dateEvent).toLocaleDateString("id-ID", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })}
+        </p>
       </div>
+
       <span className="text-sm bg-rose-100 text-[#7B1D3F] px-3 py-1 rounded-full font-medium">
-        {item.category}
+        {item.category?.nama || "Umum"}
       </span>
     </li>
   );
@@ -76,157 +92,115 @@ function SpeakerListItem({ item, index, isLast }: { item: SpeakerItem; index: nu
 
   return (
     <li className={`flex items-center gap-4 py-4 ${isLast ? "" : "border-b border-gray-100"}`}>
-      <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${colors[index % colors.length]} text-white text-sm font-bold flex items-center justify-center`}>
+      <div
+        className={`w-10 h-10 rounded-full bg-linear-to-r ${
+          colors[index % colors.length]
+        } text-white text-sm font-bold flex items-center justify-center`}
+      >
         {initials}
       </div>
+
       <div>
         <p className="font-semibold text-[#1a0a10]">{item.name}</p>
-        <p className="text-sm text-gray-400">{item.job}</p>
+        <p className="text-sm text-gray-400">{item.role}</p> {/* Menggunakan role */}
       </div>
     </li>
   );
 }
 
-// --- MAIN KOMPONEN DASHBOARD ---
+// ===== MAIN DASHBOARD =====
+
 export default function Dashboard() {
-  const [totalStats, setTotalStats] = useState<Stat[]>([
+  const [stats, setStats] = useState<Stat[]>([
     { title: "Kategori", value: 0, icon: "🗂️" },
     { title: "Event", value: 0, icon: "📅" },
     { title: "Pembicara", value: 0, icon: "🎤" },
-    { title: "Event Aktif", value: 0, icon: "✅" },
+    { title: "Total Data Masuk", value: 0, icon: "📊" }, // Pengganti Event Aktif agar lebih relevan dengan tabel kamu
   ]);
 
   const [latestEvents, setLatestEvents] = useState<EventItem[]>([]);
   const [latestSpeakers, setLatestSpeakers] = useState<SpeakerItem[]>([]);
-  
   const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    const fetchAll = async () => {
+    const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        const baseUrl = import.meta.env.VITE_API_URL || "https://backend-invofest-alpha.vercel.app";
-
-        // ✅ HILANGKAN JALUR /api AGAR SINKRON DENGAN BACKEND KAMU
-        const [catRes, eventRes, speakerRes] = await Promise.all([
-          axios.get(`${baseUrl}/categories`),
-          axios.get(`${baseUrl}/events`),
-          axios.get(`${baseUrl}/pembicara`),
+        
+        // Ambil ketiga data dari backend secara paralel
+        const [resEvents, resCategories, resSpeakers] = await Promise.all([
+          fetch(EVENTS_URL),
+          fetch(CATEGORIES_URL),
+          fetch(PEMBICARA_URL),
+          
         ]);
 
-        // Cek struktur respons data
-        const rawCategories = catRes.data?.data || catRes.data || [];
-        const rawEvents = eventRes.data?.data || eventRes.data || [];
-        const rawSpeakers = speakerRes.data?.data || speakerRes.data || [];
+        const eventsData: EventItem[] = await resEvents.json();
+        const categoriesData = await resCategories.json();
+        const speakersData: SpeakerItem[] = await resSpeakers.json();
 
-        // Hitung total statistik
-        const totalCategories = Array.isArray(rawCategories) ? rawCategories.length : 0;
-        const totalEvents = Array.isArray(rawEvents) ? rawEvents.length : 0;
-        const totalSpeakers = Array.isArray(rawSpeakers) ? rawSpeakers.length : 0;
-        const activeEventsCount = Array.isArray(rawEvents) 
-          ? rawEvents.filter((e: any) => e?.status === "active" || e?.status === "Aktif").length 
-          : 0;
-
-        setTotalStats([
-          { title: "Kategori", value: totalCategories, icon: "🗂️" },
-          { title: "Event", value: totalEvents, icon: "📅" },
-          { title: "Pembicara", value: totalSpeakers, icon: "🎤" },
-          { title: "Event Aktif", value: activeEventsCount, icon: "✅" },
+        // 1. Set Counter Box Statistik berdasarkan panjang array (.length) data asli
+        setStats([
+          { title: "Kategori", value: categoriesData.length, icon: "🗂️" },
+          { title: "Event", value: eventsData.length, icon: "📅" },
+          { title: "Pembicara", value: speakersData.length, icon: "🎤" },
+          { title: "Total Data Modul", value: categoriesData.length + eventsData.length + speakersData.length, icon: "📊" },
         ]);
 
-        // Ambil maksimal 3 data terbaru untuk ditaruh di list
-        if (Array.isArray(rawEvents)) {
-          const formattedEvents = rawEvents.slice(0, 3).map((e: any) => ({
-            name: e.name || "Event Tanpa Nama",
-            category: e.category?.name || e.category || "General",
-            date: e.dateEvent ? new Date(e.dateEvent).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' }) : "Tanpa Tanggal"
-          }));
-          setLatestEvents(formattedEvents);
-        }
+        // 2. Ambil maksimal 3 data terbaru saja untuk ditaruh di list bawah
+        setLatestEvents(eventsData.slice(0, 3));
+        setLatestSpeakers(speakersData.slice(0, 3));
 
-        if (Array.isArray(rawSpeakers)) {
-          const formattedSpeakers = rawSpeakers.slice(0, 3).map((s: any) => ({
-            name: s.name || "Pembicara Tanpa Nama",
-            job: s.job || "Expert"
-          }));
-          setLatestSpeakers(formattedSpeakers);
-        }
-
-        setErrorMessage(""); 
-      } catch (err: any) {
-        console.error("Gagal memuat ringkasan data dashboard:", err);
-        setErrorMessage(err.message || "Terjadi kesalahan saat memuat data dari API.");
+      } catch (error) {
+        console.error("Gagal memuat statistik dashboard:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchAll();
+    fetchDashboardData();
   }, []);
+
+  if (loading) {
+    return <div className="text-center mt-20 text-gray-400 text-sm">Memuat ringkasan dashboard...</div>;
+  }
 
   return (
     <div className="px-10 py-10 w-full space-y-10">
 
-      {/* HEADER & BIODATA QUICK VIEW */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gradient-to-r from-rose-50 to-white border border-rose-100/60 p-6 rounded-2xl shadow-sm">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-5 h-0.5 bg-[#7B1D3F]" />
-            <span className="text-xs font-semibold text-[#7B1D3F] uppercase tracking-widest">
-              Overview
-            </span>
-          </div>
-          <h1 className="text-3xl font-bold text-[#1a0a10]">Dashboard</h1>
-          <p className="text-gray-400 mt-1 text-sm">Ringkasan data Invofest hari ini</p>
+      {/* HEADER */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="w-5 h-0.5 bg-[#7B1D3F]" />
+          <span className="text-xs font-semibold text-[#7B1D3F] uppercase tracking-widest">
+            Overview
+          </span>
         </div>
 
-        {/* TOMBOL PROFIL */}
-        <Link 
-          to="/dashboard/biodata"
-          className="flex items-center gap-3 bg-white border border-gray-100 p-3 rounded-xl hover:shadow-md transition group text-left max-w-xs"
-        >
-          <div className="w-10 h-10 bg-rose-100 rounded-full flex items-center justify-center text-lg">
-            👨‍💻
-          </div>
-          <div>
-            <p className="text-sm font-bold text-[#1a0a10] group-hover:text-[#7B1D3F] transition">
-              Dimas Sahputra
-            </p>
-            <p className="text-xs text-gray-400 font-medium">NIM. 24090016</p>
-          </div>
-          <span className="text-gray-300 group-hover:text-[#7B1D3F] ml-auto pl-2 text-sm transition">➔</span>
-        </Link>
+        <h1 className="text-3xl font-bold text-[#1a0a10]">Dashboard</h1>
+        <p className="text-gray-400 mt-2">Ringkasan data Invofest hari ini secara real-time</p>
       </div>
 
-      {/* ERROR BANNER */}
-      {errorMessage && (
-        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-sm">
-          ⚠️ <strong>Gagal mengambil data:</strong> {errorMessage}.
-        </div>
-      )}
-
-      {/* CARDS STATS */}
+      {/* STATS COUNTER BOX */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {totalStats.map((stat) => (
+        {stats.map((stat) => (
           <StatCard key={stat.title} stat={stat} />
         ))}
       </div>
 
-      {/* LIST CONTENT */}
+      {/* BOTTOM CONTENT LIST */}
       <div className="grid lg:grid-cols-2 gap-8">
-        {/* LATEST EVENT LIST */}
+
+        {/* LATEST EVENTS COLUMN */}
         <div className="bg-white rounded-2xl shadow-md p-6">
           <SectionHeader title="Event Terbaru" />
-          {loading ? (
-            <p className="text-gray-400 text-sm text-center py-6 animate-pulse">Memuat data event...</p>
-          ) : latestEvents.length === 0 ? (
-            <p className="text-gray-400 text-sm text-center py-6">Belum ada data event terbaru di database.</p>
+          {latestEvents.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">Belum ada data event</p>
           ) : (
             <ul>
               {latestEvents.map((item, i) => (
                 <EventListItem
-                  key={i}
+                  key={item.id}
                   item={item}
                   isLast={i === latestEvents.length - 1}
                 />
@@ -235,18 +209,16 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* LATEST SPEAKER LIST */}
+        {/* LATEST SPEAKERS COLUMN */}
         <div className="bg-white rounded-2xl shadow-md p-6">
           <SectionHeader title="Pembicara Terbaru" />
-          {loading ? (
-            <p className="text-gray-400 text-sm text-center py-6 animate-pulse">Memuat data pembicara...</p>
-          ) : latestSpeakers.length === 0 ? (
-            <p className="text-gray-400 text-sm text-center py-6">Belum ada data pembicara terbaru di database.</p>
+          {latestSpeakers.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">Belum ada data pembicara</p>
           ) : (
             <ul>
               {latestSpeakers.map((item, i) => (
                 <SpeakerListItem
-                  key={i}
+                  key={item.id}
                   item={item}
                   index={i}
                   isLast={i === latestSpeakers.length - 1}
@@ -255,8 +227,8 @@ export default function Dashboard() {
             </ul>
           )}
         </div>
-      </div>
 
+      </div>
     </div>
   );
 }
