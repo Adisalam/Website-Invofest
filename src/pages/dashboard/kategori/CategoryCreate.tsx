@@ -1,45 +1,64 @@
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import Input from "../../../components/ui/Input";
-import { Button } from "../../../components/ui/Button";
-import { useForm } from "react-hook-form";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-//definisikan field yang ada pada form tambah kategori event
-type FormData = {
-  nama: string;
-};
-
-//definisikan validasi untuk field nama kategori event
-const schema = z.object({
-  nama: z.string().min(1, "Nama kategori harus diisi"),
-});
+const BASE_URL = "https://backend-invofest-six.vercel.app/categories";
 
 export default function CategoryCreate() {
-  //registrasi fungsi zod
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<FormData>({ resolver: zodResolver(schema) });
+  const [name, setName] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
 
-  const onSubmit = (data: FormData) => {
-    console.log(data);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!name.trim()) {
+      alert("Nama kategori wajib diisi!");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const res = await fetch(BASE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }), // ← Menggunakan key 'name' sesuai backend & prisma
+      });
+
+      if (!res.ok) throw new Error("Gagal menyimpan kategori");
+
+      alert(`Kategori "${name}" berhasil ditambahkan!`);
+      navigate("/dashboard/kategori");
+    } catch (error) {
+      console.error(error);
+      alert("Gagal menambahkan data ke server.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Tambah Kategori Event</h1>
-      <p>Form untuk menambahkan kategori event baru.</p>
+    <div className="max-w-xl mx-auto mt-10 p-6 border rounded-xl shadow bg-white">
+      <h1 className="text-2xl font-bold mb-6 text-[#7B1D3F]">Tambah Kategori</h1>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-        <Input
-          label="Nama Kategori"
-          name="nama"
-          register={register}
-          error={errors.nama?.message}
-        />
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div>
+          <label className="block text-sm font-medium mb-2 text-gray-700">Nama Kategori</label>
+          <input
+            type="text"
+            className="w-full border p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B1D3F]/20"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Masukkan nama kategori (contoh: Seminar, Workshop)"
+          />
+        </div>
 
-        <Button label="Simpan" variant="primary" />
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="bg-[#7B1D3F] hover:bg-[#9e2550] text-white py-3 rounded-lg font-semibold transition-colors disabled:opacity-50"
+        >
+          {isSubmitting ? "Menyimpan..." : "Simpan Kategori"}
+        </button>
       </form>
     </div>
   );
